@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzle</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the body and canvas */
+        body {
+            font-family: "Inter", sans-serif; /* Use Inter font */
+            background-color: #f0f4f8; /* Light blue-gray background */
+            transition: background-color 0.3s ease; /* Smooth transition for dark mode */
+        }
+        body.dark {
+            background-color: #1a202c; /* Dark background for dark mode */
+        }
+        canvas {
+            border: 2px solid #60a5fa; /* Blue border for the puzzle canvas */
+            background-color: #e2e8f0; /* Lighter blue-gray for canvas background */
+            touch-action: none; /* Prevent default touch actions like scrolling/zooming on canvas */
+        }
+        body.dark canvas {
+            border-color: #90cdf4; /* Lighter blue border in dark mode */
+            background-color: #2d3748; /* Darker background for canvas in dark mode */
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full dark:bg-gray-800 dark:text-gray-100 transition duration-300 ease-in-out">
+        <h1 class="text-3xl font-bold text-center text-blue-700 mb-6 dark:text-blue-300">Create Your Jigsaw Puzzle!</h1>
+
+        <!-- Controls for image upload, difficulty, and puzzle actions -->
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6">
+            <!-- Image Upload Button -->
+            <label for="imageUpload" class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out dark:bg-blue-700 dark:hover:bg-blue-800">
+                Upload Image
+            </label>
+            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+
+            <!-- Difficulty Slider -->
+            <div class="flex items-center gap-2">
+                <label for="difficulty" class="text-gray-700 font-medium dark:text-gray-300">Pieces (Rows/Cols):</label>
+                <input type="range" id="difficulty" min="2" max="10" value="4" class="w-32 accent-blue-500 dark:accent-blue-400">
+                <span id="difficultyValue" class="text-gray-800 font-bold dark:text-gray-200">4</span>
+            </div>
+
+            <!-- Action Buttons -->
+            <button id="createPuzzleBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-green-700 dark:hover:bg-green-800">
+                Create Puzzle
+            </button>
+            <button id="shuffleBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-yellow-700 dark:hover:bg-yellow-800">
+                Shuffle
+            </button>
+            <button id="solveBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-purple-700 dark:hover:bg-purple-800">
+                Solve
+            </button>
+
+            <!-- Dark Mode Toggle Button -->
+            <button id="darkModeToggle" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100">
+                Toggle Dark Mode
+            </button>
+        </div>
+
+        <!-- Puzzle Canvas Container -->
+        <div class="relative w-full aspect-square max-w-2xl mx-auto">
+            <canvas id="puzzleCanvas" class="w-full h-full rounded-lg"></canvas>
+            <!-- Completion Message Overlay -->
+            <div id="completionMessage" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white text-4xl font-bold rounded-lg hidden">
+                Puzzle Solved! 🎉
+            </div>
+        </div>
+
+        <!-- Hidden Canvas for image processing -->
+        <canvas id="hiddenCanvas" class="hidden"></canvas>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const imageUpload = document.getElementById('imageUpload');
+        const difficultySlider = document.getElementById('difficulty');
+        const difficultyValueSpan = document.getElementById('difficultyValue');
+        const createPuzzleBtn = document.getElementById('createPuzzleBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const solveBtn = document.getElementById('solveBtn');
+        const puzzleCanvas = document.getElementById('puzzleCanvas');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const completionMessage = document.getElementById('completionMessage');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        // Get 2D rendering contexts for both canvases
+        const ctx = puzzleCanvas.getContext('2d');
+        const hiddenCtx = hiddenCanvas.getContext('2d');
+
+        // Global variables for puzzle state
+        let originalImage = new Image(); // Stores the uploaded image
+        let puzzlePieces = []; // Array to hold puzzle piece objects
+        let numRowsCols = parseInt(difficultySlider.value); // Number of rows/columns for the grid
+        let pieceWidth, pieceHeight; // Dimensions of each puzzle piece
+        let puzzleWidth, puzzleHeight; // Dimensions of the main puzzle area
+
+        let draggingPiece = null; // Stores the piece currently being dragged
+        let offsetX, offsetY; // Offset from mouse/touch to piece's top-left corner
+        let currentZIndex = 0; // Used to ensure the dragging piece is drawn on top
+
+        // --- Dark Mode Logic ---
+        /**
+         * Toggles dark mode on and off.
+         * Stores the preference in localStorage.
+         */
+        function toggleDarkMode() {
+            body.classList.toggle('dark');
+            if (body.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+            drawPuzzle(); // Redraw canvas to update borders if needed
+        }
+
+        /**
+         * Applies the saved theme preference on page load.
+         */
+        function applyTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                body.classList.add('dark');
+            }
+        }
+
+        // Apply theme on initial load
+        applyTheme();
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+
+        // --- Event Listeners ---
+
+        /**
+         * Handles the image file upload.
+         * Reads the file, loads it into an Image object, and prepares canvases.
+         */
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    originalImage.onload = () => {
+                        // Determine optimal puzzle canvas dimensions (square, max 600px)
+                        puzzleWidth = Math.min(originalImage.width, originalImage.height, 600);
+                        puzzleHeight = puzzleWidth; // Keep it square
+
+                        // Set main puzzle canvas dimensions
+                        puzzleCanvas.width = puzzleWidth;
+                        puzzleCanvas.height = puzzleHeight;
+
+                        // Set hidden canvas dimensions to match original image for accurate cutting
+                        hiddenCanvas.width = originalImage.width;
+                        hiddenCanvas.height = originalImage.height;
+
+                        // Draw the original image onto the hidden canvas
+                        hiddenCtx.drawImage(originalImage, 0, 0);
+
+                        // Enable relevant buttons and hide completion message
+                        createPuzzleBtn.disabled = false;
+                        shuffleBtn.disabled = true;
+                        solveBtn.disabled = true;
+                        completionMessage.classList.add('hidden');
+                        drawPuzzle(); // Clear canvas or show placeholder
+                    };
+                    originalImage.src = event.target.result; // Set image source from file reader
+                };
+                reader.readAsDataURL(file); // Read the file as a data URL
+            }
+        });
+
+        /**
+         * Updates the displayed difficulty value when the slider is moved.
+         * Enables the 'Create Puzzle' button if an image is already loaded.
+         */
+        difficultySlider.addEventListener('input', (e) => {
+            numRowsCols = parseInt(e.target.value);
+            difficultyValueSpan.textContent = numRowsCols;
+            if (originalImage.src) {
+                createPuzzleBtn.disabled = false;
+            }
+        });
+
+        /**
+         * Triggers puzzle creation when the 'Create Puzzle' button is clicked.
+         * Shows a message if no image is uploaded.
+         */
+        createPuzzleBtn.addEventListener('click', () => {
+            if (!originalImage.src) {
+                // Display a custom message instead of alert
+                showTemporaryMessage("Please upload an image first!", "bg-red-500");
+                return;
+            }
+            createPuzzle();
+            shuffleBtn.disabled = false;
+            solveBtn.disabled = false;
+            completionMessage.classList.add('hidden');
+        });
+
+        /**
+         * Triggers puzzle shuffling when the 'Shuffle' button is clicked.
+         * Shows a message if no puzzle has been created.
+         */
+        shuffleBtn.addEventListener('click', () => {
+            if (puzzlePieces.length === 0) {
+                // Display a custom message instead of alert
+                showTemporaryMessage("Please create a puzzle first!", "bg-red-500");
+                return;
+            }
+            shufflePieces();
+            completionMessage.classList.add('hidden');
+        });
+
+        /**
+         * Triggers puzzle solving when the 'Solve' button is clicked.
+         * Shows a message if no puzzle has been created.
+         */
+        solveBtn.addEventListener('click', () => {
+            if (puzzlePieces.length === 0) {
+                // Display a custom message instead of alert
+                showTemporaryMessage("Please create a puzzle first!", "bg-red-500");
+                return;
+            }
+            solvePuzzle();
+            completionMessage.classList.add('hidden');
+        });
+
+        // --- Custom Message Box (replaces alert) ---
+        /**
+         * Displays a temporary message on the screen.
+         * @param {string} message - The message to display.
+         * @param {string} bgColorClass - Tailwind background color class (e.g., 'bg-red-500').
+         */
+        function showTemporaryMessage(message, bgColorClass) {
+            let messageBox = document.getElementById('tempMessageBox');
+            if (!messageBox) {
+                messageBox = document.createElement('div');
+                messageBox.id = 'tempMessageBox';
+                messageBox.className = 'fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg text-white font-semibold shadow-lg z-50 transition-all duration-300 ease-out opacity-0';
+                document.body.appendChild(messageBox);
+            }
+
+            messageBox.textContent = message;
+            messageBox.className = `fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg text-white font-semibold shadow-lg z-50 transition-all duration-300 ease-out ${bgColorClass} opacity-100`;
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
+            }, 3000); // Message disappears after 3 seconds
+        }
+
+        // --- Puzzle Core Logic ---
+
+        /**
+         * Divides the loaded image into rectangular puzzle pieces.
+         * Each piece's image data is extracted and stored as a Data URL, and an Image object is created for it.
+         */
+        function createPuzzle() {
+            puzzlePieces = []; // Clear existing pieces
+            pieceWidth = puzzleWidth / numRowsCols;
+            pieceHeight = puzzleHeight / numRowsCols;
+
+            // Calculate scaling factors to map original image dimensions to puzzle canvas dimensions
+            const sourceXRatio = originalImage.width / puzzleWidth;
+            const sourceYRatio = originalImage.height / puzzleHeight;
+
+            const piecePromises = []; // To track when all piece images are loaded
+
+            for (let row = 0; row < numRowsCols; row++) {
+                for (let col = 0; col < numRowsCols; col++) {
+                    const originalX = col * pieceWidth;
+                    const originalY = row * pieceHeight;
+
+                    // Calculate source coordinates and dimensions from the original image
+                    const sourceX = originalX * sourceXRatio;
+                    const sourceY = originalY * sourceYRatio;
+                    const sourceWidth = pieceWidth * sourceXRatio;
+                    const sourceHeight = pieceHeight * sourceYRatio;
+
+                    // Create a temporary canvas for each piece to extract its image data
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = pieceWidth;
+                    tempCanvas.height = pieceHeight;
+                    const tempCtx = tempCanvas.getContext('2d');
+
+                    // Draw the specific part of the original image onto the temporary canvas
+                    tempCtx.drawImage(
+                        originalImage,
+                        sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle on original image
+                        0, 0, pieceWidth, pieceHeight // Destination rectangle on temp canvas
+                    );
+
+                    const pieceImg = new Image();
+                    pieceImg.src = tempCanvas.toDataURL(); // Set image source to the piece's Data URL
+
+                    const piece = {
+                        id: `piece-${row}-${col}`, // Unique ID for the piece
+                        originalX: originalX,      // Correct X position
+                        originalY: originalY,      // Correct Y position
+                        currentX: originalX,       // Current X position (initially correct)
+                        currentY: originalY,       // Current Y position (initially correct)
+                        image: pieceImg,           // Store the Image object directly
+                        zIndex: 0                  // Initial z-index for drawing order
+                    };
+                    puzzlePieces.push(piece);
+
+                    // Create a promise that resolves when this piece's image is loaded
+                    piecePromises.push(new Promise(resolve => {
+                        pieceImg.onload = resolve;
+                        pieceImg.onerror = () => {
+                            console.error(`Failed to load piece image for ${piece.id}`);
+                            resolve(); // Resolve even on error to not block Promise.all
+                        };
+                    }));
+                }
+            }
+
+            // Wait for all piece images to load before drawing the puzzle
+            Promise.all(piecePromises).then(() => {
+                drawPuzzle(); // Draw the newly created puzzle
+            });
+        }
+
+        /**
+         * Randomly shuffles the positions of all puzzle pieces.
+         */
+        function shufflePieces() {
+            // Create an array of all possible target positions
+            const positions = [];
+            for (let row = 0; row < numRowsCols; row++) {
+                for (let col = 0; col < numRowsCols; col++) {
+                    positions.push({ x: col * pieceWidth, y: row * pieceHeight });
+                }
+            }
+
+            // Fisher-Yates (Knuth) shuffle algorithm for positions
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]]; // Swap elements
+            }
+
+            // Assign the shuffled positions to each puzzle piece
+            puzzlePieces.forEach((piece, index) => {
+                piece.currentX = positions[index].x;
+                piece.currentY = positions[index].y;
+                piece.zIndex = 0; // Reset z-index after shuffling
+            });
+            drawPuzzle(); // Redraw the puzzle with new positions
+        }
+
+        /**
+         * Moves all puzzle pieces back to their original, solved positions.
+         */
+        function solvePuzzle() {
+            puzzlePieces.forEach(piece => {
+                piece.currentX = piece.originalX;
+                piece.currentY = piece.originalY;
+                piece.zIndex = 0; // Reset z-index
+            });
+            drawPuzzle(); // Redraw the solved puzzle
+            checkCompletion(); // Check completion immediately after solving
+        }
+
+        /**
+         * Clears the main puzzle canvas and redraws all puzzle pieces at their current positions.
+         * Pieces are sorted by zIndex to ensure correct drawing order (dragging piece on top).
+         * This function now uses pre-loaded Image objects, reducing flickering.
+         */
+        function drawPuzzle() {
+            ctx.clearRect(0, 0, puzzleCanvas.width, puzzleCanvas.height); // Clear the entire canvas
+
+            // Sort pieces by zIndex to draw pieces with higher zIndex on top
+            puzzlePieces.sort((a, b) => a.zIndex - b.zIndex);
+
+            puzzlePieces.forEach(piece => {
+                // Use the pre-loaded Image object directly
+                ctx.drawImage(piece.image, piece.currentX, piece.currentY, pieceWidth, pieceHeight);
+                // Draw a subtle border around each piece for visual separation
+                ctx.strokeStyle = body.classList.contains('dark') ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'; // Border color adapts to dark mode
+                ctx.lineWidth = 1;
+                ctx.strokeRect(piece.currentX, piece.currentY, pieceWidth, pieceHeight);
+            });
+        }
+
+        // --- Drag and Drop Logic (Mouse and Touch) ---
+
+        // Mouse event listeners
+        puzzleCanvas.addEventListener('mousedown', handleMouseDown);
+        puzzleCanvas.addEventListener('mousemove', handleMouseMove);
+        puzzleCanvas.addEventListener('mouseup', handleMouseUp);
+        puzzleCanvas.addEventListener('mouseout', handleMouseUp); // End drag if mouse leaves canvas
+
+        // Touch event listeners (passive: false to allow preventDefault)
+        puzzleCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        puzzleCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        puzzleCanvas.addEventListener('touchend', handleTouchEnd);
+        puzzleCanvas.addEventListener('touchcancel', handleTouchEnd); // Handle touch interruption
+
+        /**
+         * Gets the coordinates of the mouse or touch event relative to the canvas.
+         * @param {Event} e - The mouse or touch event.
+         * @returns {{x: number, y: number}} - Object with x and y coordinates.
+         */
+        function getEventCoords(e) {
+            const rect = puzzleCanvas.getBoundingClientRect(); // Get canvas position and size
+            let clientX, clientY;
+
+            // Check if it's a touch event
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else { // It's a mouse event
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Calculate coordinates relative to the canvas
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        /** Mouse event handlers */
+        function handleMouseDown(e) {
+            e.preventDefault(); // Prevent default browser actions (e.g., text selection)
+            const coords = getEventCoords(e);
+            startDrag(coords.x, coords.y);
+        }
+
+        function handleMouseMove(e) {
+            e.preventDefault();
+            const coords = getEventCoords(e);
+            drag(coords.x, coords.y);
+        }
+
+        function handleMouseUp(e) {
+            e.preventDefault();
+            endDrag();
+        }
+
+        /** Touch event handlers */
+        function handleTouchStart(e) {
+            e.preventDefault(); // Prevent scrolling/zooming on touch
+            const coords = getEventCoords(e);
+            startDrag(coords.x, coords.y);
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault(); // Prevent scrolling/zooming on touch
+            const coords = getEventCoords(e);
+            drag(coords.x, coords.y);
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            endDrag();
+        }
+
+        /**
+         * Initiates the drag operation.
+         * Finds the puzzle piece under the mouse/touch coordinates and sets it as the dragging piece.
+         * Updates its z-index to bring it to the front.
+         * @param {number} mouseX - X coordinate of the mouse/touch.
+         * @param {number} mouseY - Y coordinate of the mouse/touch.
+         */
+        function startDrag(mouseX, mouseY) {
+            // Iterate through pieces from top (highest z-index) to bottom to find the clicked piece
+            for (let i = puzzlePieces.length - 1; i >= 0; i--) {
+                const piece = puzzlePieces[i];
+                // Check if mouse/touch coordinates are within the piece's bounds
+                if (mouseX >= piece.currentX && mouseX <= piece.currentX + pieceWidth &&
+                    mouseY >= piece.currentY && mouseY <= piece.currentY + pieceHeight) {
+                    draggingPiece = piece; // Set this piece as the one being dragged
+                    offsetX = mouseX - piece.currentX; // Calculate offset from piece's top-left
+                    offsetY = mouseY - piece.currentY;
+
+                    // Bring the dragging piece to the top by incrementing its zIndex
+                    currentZIndex++;
+                    draggingPiece.zIndex = currentZIndex;
+                    drawPuzzle(); // Redraw the puzzle to show the piece on top
+                    return; // Stop after finding the first piece
+                }
+            }
+        }
+
+        /**
+         * Updates the position of the dragging piece.
+         * @param {number} mouseX - Current X coordinate of the mouse/touch.
+         * @param {number} mouseY - Current Y coordinate of the mouse/touch.
+         */
+        function drag(mouseX, mouseY) {
+            if (draggingPiece) {
+                // Update piece's current position based on mouse/touch and initial offset
+                draggingPiece.currentX = mouseX - offsetX;
+                draggingPiece.currentY = mouseY - offsetY;
+                drawPuzzle(); // Redraw the puzzle to reflect the piece's new position
+            }
+        }
+
+        const SNAP_THRESHOLD = 20; // Pixels: if a piece is within this distance of its correct spot, it snaps.
+
+        /**
+         * Ends the drag operation.
+         * Checks if the dropped piece is close enough to its original position to snap into place.
+         * Triggers a completion check after the piece is dropped.
+         */
+        function endDrag() {
+            if (draggingPiece) {
+                // Calculate target coordinates (original position)
+                const targetX = draggingPiece.originalX;
+                const targetY = draggingPiece.originalY;
+
+                // Calculate distance from current position to target position
+                const distanceX = Math.abs(draggingPiece.currentX - targetX);
+                const distanceY = Math.abs(draggingPiece.currentY - targetY);
+
+                // If within snap threshold, snap the piece to its correct position
+                if (distanceX < SNAP_THRESHOLD && distanceY < SNAP_THRESHOLD) {
+                    draggingPiece.currentX = targetX;
+                    draggingPiece.currentY = targetY;
+                }
+                draggingPiece = null; // Clear the dragging piece
+                drawPuzzle(); // Redraw after potential snap
+                checkCompletion(); // Check if the puzzle is solved
+            }
+        }
+
+        /**
+         * Checks if all puzzle pieces are in their correct original positions.
+         * Displays a "Puzzle Solved!" message if completed.
+         */
+        function checkCompletion() {
+            const allInPlace = puzzlePieces.every(piece =>
+                // Check if current position is very close to original position (allowing for minor floating point errors)
+                Math.abs(piece.currentX - piece.originalX) < 1 &&
+                Math.abs(piece.currentY - piece.originalY) < 1
+            );
+
+            if (allInPlace) {
+                completionMessage.classList.remove('hidden'); // Show completion message
+                shuffleBtn.disabled = true; // Disable shuffle after completion
+                solveBtn.disabled = true; // Disable solve after completion
+            } else {
+                completionMessage.classList.add('hidden'); // Hide completion message
+            }
+        }
+
+        // Initial call to draw the puzzle (will be an empty canvas or placeholder initially)
+        drawPuzzle();
+    </script>
+</body>
+</html>
