@@ -25,47 +25,132 @@
             border-color: #90cdf4; /* Lighter blue border in dark mode */
             background-color: #2d3748; /* Darker background for canvas in dark mode */
         }
+
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip-container .tooltip-text {
+            visibility: hidden;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position the tooltip above the button */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap; /* Prevent text wrapping */
+            font-size: 0.875rem; /* text-sm */
+        }
+
+        .tooltip-container .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Styles for collapsable controls */
+        #controlsContainer {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            overflow: hidden;
+            max-height: 200px; /* Max height when expanded, adjust as needed */
+            opacity: 1;
+        }
+        #controlsContainer.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0 !important; /* Override margin when collapsed */
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
     <div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full dark:bg-gray-800 dark:text-gray-100 transition duration-300 ease-in-out">
-        <h1 class="text-3xl font-bold text-center text-blue-700 mb-6 dark:text-blue-300">Create Your Jigsaw Puzzle!</h1>
-
         <!-- Controls for image upload, difficulty, and puzzle actions -->
-        <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6">
-            <!-- Image Upload Button -->
-            <label for="imageUpload" class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out dark:bg-blue-700 dark:hover:bg-blue-800">
-                Upload Image
-            </label>
-            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+        <div id="controlsContainer" class="flex flex-wrap items-center justify-center gap-4 mb-6">
+            <!-- Upload Image Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <label for="imageUpload" class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out dark:bg-blue-700 dark:hover:bg-blue-800 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                </label>
+                <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                <span class="tooltip-text">Upload Image</span>
+            </div>
 
             <!-- Difficulty Slider -->
             <div class="flex items-center gap-2">
-                <label for="difficulty" class="text-gray-700 font-medium dark:text-gray-300">Pieces (Rows/Cols):</label>
+                <label for="difficulty" class="text-gray-700 font-medium dark:text-gray-300">Pieces:</label>
                 <input type="range" id="difficulty" min="2" max="10" value="4" class="w-32 accent-blue-500 dark:accent-blue-400">
                 <span id="difficultyValue" class="text-gray-800 font-bold dark:text-gray-200">4</span>
             </div>
 
-            <!-- Action Buttons -->
-            <button id="createPuzzleBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-green-700 dark:hover:bg-green-800">
-                Create Puzzle
-            </button>
-            <button id="shuffleBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-yellow-700 dark:hover:bg-yellow-800">
-                Shuffle
-            </button>
-            <button id="solveBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-purple-700 dark:hover:bg-purple-800">
-                Solve
-            </button>
+            <!-- Create Puzzle Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <button id="createPuzzleBtn" class="bg-green-500 hover:bg-green-600 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-green-700 dark:hover:bg-green-800 flex items-center justify-center" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-puzzle"><path d="M19.4 15.3c.7-.7 1.3-1.4 1.3-2.3 0-.9-.6-1.6-1.3-2.3l-1.4-1.5c-.7-.7-1.4-1.3-2.3-1.3-.9 0-1.6.6-2.3 1.3L9.7 4.6c-.7.7-1.4 1.3-2.3 1.3-.9 0-1.6-.6-2.3-1.3L3.7 3.2c-.7-.7-1.3-1.4-1.3-2.3 0-.9.6-1.6 1.3-2.3L4.6 1.3c.7-.7 1.3-1.4 1.3-2.3 0-.9-.6-1.6-1.3-2.3L3.2 3.7c-.7-.7-1.4-1.3-2.3-1.3-.9 0-1.6.6-2.3 1.3L1.3 4.6c.7-.7 1.4-1.3 2.3-1.3.9 0 1.6.6 2.3 1.3L4.6 9.7c-.7.7-1.3 1.4-1.3 2.3 0 .9.6 1.6 1.3 2.3L6 19.4c.7.7 1.4 1.3 2.3 1.3.9 0 1.6-.6 2.3-1.3l1.5-1.4c.7-.7 1.3-1.4 1.3-2.3 0-.9-.6-1.6-1.3-2.3L19.4 15.3Z"/></svg>
+                </button>
+                <span class="tooltip-text">Create Puzzle</span>
+            </div>
 
-            <!-- Dark Mode Toggle Button -->
-            <button id="darkModeToggle" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100">
-                Toggle Dark Mode
+            <!-- Shuffle Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <button id="shuffleBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-yellow-700 dark:hover:bg-yellow-800 flex items-center justify-center" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shuffle"><path d="M2 18h10a4 4 0 0 0 4-4V8a4 4 0 0 1 4-4h2"/><path d="M7 21v-3h3"/><path d="M17 3v3h3"/><path d="M2 6h10a4 4 0 0 1 4 4v4a4 4 0 0 0 4 4h2"/></svg>
+                </button>
+                <span class="tooltip-text">Shuffle Puzzle</span>
+            </div>
+
+            <!-- Solve Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <button id="solveBtn" class="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed dark:bg-purple-700 dark:hover:bg-purple-800 flex items-center justify-center" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                </button>
+                <span class="tooltip-text">Solve Puzzle</span>
+            </div>
+
+            <!-- Fullscreen Toggle Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <button id="fullscreenToggle" class="bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out dark:bg-indigo-700 dark:hover:bg-indigo-800 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                </button>
+                <span class="tooltip-text">Toggle Fullscreen</span>
+            </div>
+
+            <!-- Dark Mode Toggle Button (Icon with Tooltip) -->
+            <div class="tooltip-container">
+                <button id="darkModeToggle" class="bg-gray-300 hover:bg-gray-400 text-gray-800 p-3 rounded-full shadow-md transition duration-300 ease-in-out dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon-star"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg>
+                </button>
+                <span class="tooltip-text">Toggle Dark Mode</span>
+            </div>
+        </div>
+
+        <!-- Toggle Controls Button (outside controlsContainer for persistent visibility) -->
+        <div class="tooltip-container mb-4">
+            <button id="toggleControlsBtn" class="bg-gray-400 hover:bg-gray-500 text-white p-3 rounded-full shadow-md transition duration-300 ease-in-out dark:bg-gray-600 dark:hover:bg-gray-500 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-up-down"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
             </button>
+            <span class="tooltip-text">Toggle Controls</span>
         </div>
 
         <!-- Puzzle Canvas Container -->
-        <div class="relative w-full aspect-square max-w-2xl mx-auto">
-            <canvas id="puzzleCanvas" class="w-full h-full rounded-lg"></canvas>
+        <div id="puzzleContainer" class="relative w-full max-w-2xl mx-auto overflow-hidden rounded-lg">
+            <canvas id="puzzleCanvas" class="w-full h-full block"></canvas>
             <!-- Completion Message Overlay -->
             <div id="completionMessage" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white text-4xl font-bold rounded-lg hidden">
                 Puzzle Solved! 🎉
@@ -88,6 +173,10 @@
         const hiddenCanvas = document.getElementById('hiddenCanvas');
         const completionMessage = document.getElementById('completionMessage');
         const darkModeToggle = document.getElementById('darkModeToggle');
+        const fullscreenToggle = document.getElementById('fullscreenToggle');
+        const puzzleContainer = document.getElementById('puzzleContainer');
+        const toggleControlsBtn = document.getElementById('toggleControlsBtn'); // New button for controls
+        const controlsContainer = document.getElementById('controlsContainer'); // Container for controls
         const body = document.body;
 
         // Get 2D rendering contexts for both canvases
@@ -134,6 +223,43 @@
         applyTheme();
         darkModeToggle.addEventListener('click', toggleDarkMode);
 
+        // --- Fullscreen Logic ---
+        /**
+         * Toggles fullscreen mode for the puzzle container.
+         */
+        fullscreenToggle.addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                puzzleContainer.requestFullscreen().catch(err => {
+                    showTemporaryMessage(`Error attempting to enable full-screen mode: ${err.message} (Your browser may block it)`, "bg-red-500");
+                });
+            }
+        });
+
+        // Event listener for fullscreen change to update UI if needed (not strictly necessary for this app)
+        document.addEventListener('fullscreenchange', () => {
+            // You could change the fullscreen icon here if desired
+        });
+
+        // --- Toggle Controls Logic ---
+        /**
+         * Toggles the visibility of the controls container.
+         */
+        toggleControlsBtn.addEventListener('click', () => {
+            controlsContainer.classList.toggle('collapsed');
+            // Change icon based on state
+            const icon = toggleControlsBtn.querySelector('svg');
+            if (controlsContainer.classList.contains('collapsed')) {
+                icon.innerHTML = '<path d="m6 9 6 6 6-6"/>'; // Chevron down
+                toggleControlsBtn.closest('.tooltip-container').querySelector('.tooltip-text').textContent = 'Show Controls';
+            } else {
+                icon.innerHTML = '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>'; // Chevrons up-down
+                toggleControlsBtn.closest('.tooltip-container').querySelector('.tooltip-text').textContent = 'Toggle Controls';
+            }
+        });
+
+
         // --- Event Listeners ---
 
         /**
@@ -146,9 +272,17 @@
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     originalImage.onload = () => {
-                        // Determine optimal puzzle canvas dimensions (square, max 600px)
-                        puzzleWidth = Math.min(originalImage.width, originalImage.height, 600);
-                        puzzleHeight = puzzleWidth; // Keep it square
+                        // Calculate aspect ratio
+                        const aspectRatio = originalImage.width / originalImage.height;
+                        const MAX_DIMENSION = 600; // Max width/height for the puzzle canvas
+
+                        if (originalImage.width > originalImage.height) { // Landscape or square
+                            puzzleWidth = MAX_DIMENSION;
+                            puzzleHeight = MAX_DIMENSION / aspectRatio;
+                        } else { // Portrait
+                            puzzleHeight = MAX_DIMENSION;
+                            puzzleWidth = MAX_DIMENSION * aspectRatio;
+                        }
 
                         // Set main puzzle canvas dimensions
                         puzzleCanvas.width = puzzleWidth;
@@ -266,8 +400,9 @@
             pieceHeight = puzzleHeight / numRowsCols;
 
             // Calculate scaling factors to map original image dimensions to puzzle canvas dimensions
-            const sourceXRatio = originalImage.width / puzzleWidth;
-            const sourceYRatio = originalImage.height / puzzleHeight;
+            // These ratios are now based on the *display* dimensions of the puzzleCanvas
+            const sourceXRatio = originalImage.width / puzzleCanvas.width;
+            const sourceYRatio = originalImage.height / puzzleCanvas.height;
 
             const piecePromises = []; // To track when all piece images are loaded
 
@@ -277,6 +412,7 @@
                     const originalY = row * pieceHeight;
 
                     // Calculate source coordinates and dimensions from the original image
+                    // These are based on the *original image's* dimensions scaled by the ratios
                     const sourceX = originalX * sourceXRatio;
                     const sourceY = originalY * sourceYRatio;
                     const sourceWidth = pieceWidth * sourceXRatio;
@@ -420,9 +556,13 @@
             }
 
             // Calculate coordinates relative to the canvas
+            // Adjust for canvas scaling if CSS width/height differ from canvas.width/height
+            const scaleX = puzzleCanvas.width / rect.width;
+            const scaleY = puzzleCanvas.height / rect.height;
+
             return {
-                x: clientX - rect.left,
-                y: clientY - rect.top
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
             };
         }
 
